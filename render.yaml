@@ -1,0 +1,16 @@
+# One-click deploy on Render: New + > Blueprint > select this repo.
+services:
+  - type: web
+    name: step-tracker
+    runtime: docker
+    plan: starter            # persistent disk requires a paid plan
+    healthCheckPath: /healthz
+    disk: { name: data, mountPath: /data, sizeGB: 1 }
+    envVars:
+      - { key: ADMIN_PASSWORD, sync: false }   # you'll be prompted
+      - { key: BASE_URL, sync: false }         # e.g. https://step-tracker.onrender.com
+      - { key: SMTP_URL, sync: false }
+      - { key: MAIL_FROM, sync: false }
+      - { key: TWILIO_SID, sync: false }
+      - { key: TWILIO_TOKEN, sync: false }
+      - { key: TWILIO_FROM, sync: false }

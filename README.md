@@ -38,3 +38,10 @@ Decision links open a confirmation page; nothing changes until the button there 
 email scanners that pre-fetch links can't trigger decisions. Daily sends run once per day after the
 configured hour; a day only counts as handled once a delivery succeeds, so failures retry.
 Data is stored in `data/db.json`.
+
+## Deploying live
+The app needs an always-on Node host with a persistent disk (it runs the daily alert scheduler and stores `data/db.json`).
+- **Render:** New → Blueprint → pick this repo (`render.yaml`). Fill in `ADMIN_PASSWORD`, `BASE_URL` (the URL Render gives you), and SMTP/Twilio values.
+- **Any Docker host (Fly.io, Railway, VPS):** `docker build -t step-tracker . && docker run -d -p 3000:3000 -v stepdata:/data -e ADMIN_PASSWORD=… -e BASE_URL=https://your.domain step-tracker`
+- Production mode (`NODE_ENV=production`) skips the sample data. Serverless hosts won't work (no persistent scheduler/disk).
+- After deploying, enter each house's email/phone in Settings and press **Run alerts now** to confirm delivery.

@@ -16,7 +16,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 store.load();
-if (!store.get().seeded && !process.env.NO_SEED) seed(scheduler.today());
+if (!store.get().seeded && !process.env.NO_SEED && process.env.NODE_ENV !== 'production') seed(scheduler.today());
 
 const send = (res, code, body, type = 'application/json') => {
   res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
@@ -126,6 +126,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname;
+    if (p === '/healthz') return send(res, 200, { ok: true });
     const dm = p.match(/^\/decide\/([a-f0-9]+)\/([A-Za-z0-9_-]+)$/);
     if (dm && (req.method === 'GET' || req.method === 'POST')) return decidePage(req, res, dm[1], dm[2], req.method);
 
@@ -189,6 +190,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
-  server.listen(PORT, () => { console.log(`Step tracker running on http://localhost:${PORT}`); scheduler.start(); });
+  server.listen(PORT, () => {
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.ADMIN_PASSWORD) console.warn('WARNING: ADMIN_PASSWORD is not set — the dashboard is open to anyone with the URL.');
+      if (!process.env.BASE_URL) console.warn('WARNING: BASE_URL is not set — decision links in alerts will point to localhost.');
+    } console.log(`Step tracker running on http://localhost:${PORT}`); scheduler.start(); });
 }
 module.exports = server;
