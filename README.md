@@ -39,9 +39,13 @@ email scanners that pre-fetch links can't trigger decisions. Daily sends run onc
 configured hour; a day only counts as handled once a delivery succeeds, so failures retry.
 Data is stored in `data/db.json`.
 
-## Deploying live
-The app needs an always-on Node host with a persistent disk (it runs the daily alert scheduler and stores `data/db.json`).
-- **Render:** New → Blueprint → pick this repo (`render.yaml`). Fill in `ADMIN_PASSWORD`, `BASE_URL` (the URL Render gives you), and SMTP/Twilio values.
-- **Any Docker host (Fly.io, Railway, VPS):** `docker build -t step-tracker . && docker run -d -p 3000:3000 -v stepdata:/data -e ADMIN_PASSWORD=… -e BASE_URL=https://your.domain step-tracker`
-- Production mode (`NODE_ENV=production`) skips the sample data. Serverless hosts won't work (no persistent scheduler/disk).
-- After deploying, enter each house's email/phone in Settings and press **Run alerts now** to confirm delivery.
+## Deploying live on Netlify
+The same code runs on Netlify: `netlify/functions/api.mjs` serves the API and decision links, `netlify/functions/daily-alerts.mjs`
+is an hourly scheduled function that sends each day's alerts once (after the send hour in Settings), and data lives in Netlify Blobs.
+
+1. Netlify → **Add new site → Import an existing project** → pick this repo/branch (settings are read from `netlify.toml`; no build command needed).
+2. **Site configuration → Environment variables:** `ADMIN_PASSWORD`, `APP_TIMEZONE` (e.g. `Europe/London`, so "today" and the send hour use your clock), `SMTP_URL`, `MAIL_FROM`, `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`. `BASE_URL` is optional (defaults to the site address).
+3. Deploy, open the site (any username + your `ADMIN_PASSWORD`), set each house's email/phone in **Settings**, then **Run alerts now** to test.
+
+Notes: scheduled functions run on the published (production) deploy only. Writes are last-write-wins, which is fine for a small team.
+Also works on any Node/Docker host (`Dockerfile`, `render.yaml`) with a persistent disk.
