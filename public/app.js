@@ -87,26 +87,49 @@ function candidates() {
 
 function addDialog() {
   const d = $('#dlg');
-  d.innerHTML = `<form class="dlg" method="dialog"><div class="dlg-head"><h2>Add candidate</h2><button class="btn sm" value="x">✕</button></div>
-    <div class="form" style="margin-top:14px">
-    <label class="field">Full name<input name="name" required></label>
-    <label class="field">House<select name="house"><option value="windsor">House of Windsor</option><option value="tudor">House of Tudor</option></select></label>
-    <label class="field">Class<input name="className" placeholder="e.g. Class 14A"></label>
-    <label class="field">Admitted to Step 2<input type="date" name="admittedOn" required value="${S.today}"></label>
-    <label class="field">Current step<select name="step"><option value="2">Step 2</option><option value="3">Already in Step 3</option></select></label>
-    <label class="field s3" hidden>Promoted to Step 3 on<input type="date" name="promotedOn" value="${S.today}"></label>
-    <label class="field s3" hidden>Classification<select name="classification"><option value="">Not yet classified</option><option>T2</option><option>T3</option></select></label></div>
-    <p class="muted" id="preview"></p><div class="actions"><button class="btn primary" id="save" value="ok">Add candidate</button></div></form>`;
-  const f = $('form', d);
-  const upd = () => { f.querySelectorAll('.s3').forEach((e) => e.hidden = f.step.value !== '3');
-    if (f.admittedOn.value) { const a = new Date(f.admittedOn.value + 'T00:00:00Z'); a.setUTCDate(a.getUTCDate() + S.rules.promotionDays); const al = new Date(a); al.setUTCDate(al.getUTCDate() - S.rules.promotionLeadDays);
-      $('#preview').textContent = f.step.value === '2' ? `Eligible for Step 3 on ${fmtDate(a.toISOString().slice(0, 10))}; alerts start ${fmtDate(al.toISOString().slice(0, 10))}.` : ''; } };
-  f.oninput = upd; upd();
-  f.onsubmit = async (e) => {
-    if (e.submitter?.value !== 'ok') return;
-    e.preventDefault();
-    try { await api('/candidates', 'POST', Object.fromEntries(new FormData(f))); d.close(); toast('Candidate added'); refresh(); } catch (er) { toast(er.message); }
+  const info = {};
+  const close = '<button type="button" class="btn sm" id="x">✕</button>';
+  const step1 = () => {
+    d.innerHTML = `<form class="dlg"><div class="dlg-head"><h2>Add candidate <span class="muted">· 1 of 2</span></h2>${close}</div>
+      <div class="form" style="margin-top:14px">
+      <label class="field">Full name<input name="name" required value="${esc(info.name || '')}"></label>
+      <label class="field">House<select name="house"><option value="windsor">House of Windsor</option><option value="tudor" ${info.house === 'tudor' ? 'selected' : ''}>House of Tudor</option></select></label>
+      <label class="field">Class<input name="className" placeholder="e.g. Class 14A" value="${esc(info.className || '')}"></label></div>
+      <div class="actions" style="margin-top:16px"><button class="btn primary">Next →</button></div></form>`;
+    $('#x', d).onclick = () => d.close();
+    $('form', d).onsubmit = (e) => { e.preventDefault(); Object.assign(info, Object.fromEntries(new FormData(e.target))); step2(); };
   };
+  const step2 = () => {
+    d.innerHTML = `<form class="dlg"><div class="dlg-head"><h2>Enrolment details <span class="muted">· 2 of 2</span></h2>${close}</div>
+      <p style="margin:10px 0 0"><b>${esc(info.name)}</b> ${houseChip(info.house)} — when were they enrolled, and which step are they on?</p>
+      <div class="form" style="margin-top:14px">
+      <label class="field">Date enrolled (Step 2 admission)<input type="date" name="admittedOn" required max="${S.today}" value="${esc(info.admittedOn || '')}"></label>
+      <label class="field">Current step<select name="step"><option value="2">Step 2</option><option value="3" ${info.step === '3' ? 'selected' : ''}>Step 3</option></select></label>
+      <label class="field s3" hidden>Date promoted to Step 3<input type="date" name="promotedOn" max="${S.today}" value="${esc(info.promotedOn || '')}"></label>
+      <label class="field s3" hidden>T2 / T3 classification<select name="classification"><option value="">Not yet classified</option><option>T2</option><option>T3</option></select></label></div>
+      <p class="muted" id="preview"></p>
+      <div class="actions" style="margin-top:12px"><button type="button" class="btn" id="back">← Back</button><button class="btn primary">Add candidate</button></div></form>`;
+    const f = $('form', d);
+    const iso = (dt) => dt.toISOString().slice(0, 10);
+    const upd = () => {
+      const s3 = f.step.value === '3';
+      f.querySelectorAll('.s3').forEach((e) => { e.hidden = !s3; });
+      f.promotedOn.required = s3;
+      const a = f.admittedOn.value;
+      if (a) f.promotedOn.min = a;
+      const u = (n, m) => { const t = new Date(a + 'T00:00:00Z'); if (m) t.setUTCMonth(t.getUTCMonth() + n); else t.setUTCDate(t.getUTCDate() + n); return fmtDate(iso(t)); };
+      $('#preview').textContent = !a ? '' : s3 ? `T2/T3 classification due ${u(3, true)}.` : `Eligible for Step 3 on ${u(S.rules.promotionDays)}; alerts start ${u(S.rules.promotionDays - S.rules.promotionLeadDays)}.`;
+    };
+    f.oninput = upd; upd();
+    $('#x', d).onclick = () => d.close();
+    $('#back', d).onclick = () => { Object.assign(info, Object.fromEntries(new FormData(f))); step1(); };
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      try { await api('/candidates', 'POST', { ...info, ...Object.fromEntries(new FormData(f)) }); d.close(); toast(`${info.name} added`); refresh(); }
+      catch (er) { toast(er.message); }
+    };
+  };
+  step1();
   d.showModal();
 }
 
